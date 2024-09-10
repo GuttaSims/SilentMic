@@ -1,1 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Monitoring with Meter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        #meter {
+            width: 200px;
+            height: 50px;
+            background-color: #ddd;
+            border-radius: 25px;
+            overflow: hidden;
+            position: relative;
+        }
+        #meter-bar {
+            height: 100%;
+            width: 0;
+            background-color: #4caf50;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: width 0.2s;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Voice Monitoring with Meter</h1>
+    <div id="meter">
+        <div id="meter-bar"></div>
+    </div>
+    <p id="status">Listening for voice input...</p>
+
+    <script>
+        const meterBar = document.getElementById('meter-bar');
+        const status = document.getElementById('status');
+
+        if ('webkitSpeechRecognition' in window) {
+            const recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.start();
+
+            recognition.onresult = function(event) {
+                // When voice is detected, increase the meter
+                updateMeter(100); // Fully filled meter
+                status.textContent = "Voice detected!";
+                
+                // Reset meter after 1 second
+                setTimeout(() => {
+                    updateMeter(0); // Empty meter
+                    status.textContent = "Listening for voice input...";
+                }, 1000);
+            };
+
+            recognition.onerror = function(event) {
+                status.textContent = "Error occurred: " + event.error;
+            };
+
+            recognition.onend = function() {
+                recognition.start(); // Restart if the recognition stops
+            };
+        } else {
+            status.textContent = "Speech Recognition is not supported in this browser.";
+        }
+
+        function updateMeter(percentage) {
+            meterBar.style.width = percentage + '%';
+        }
+    </script>
+</body>
+</html>
 
