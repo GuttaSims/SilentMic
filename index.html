@@ -38,6 +38,7 @@
         #status {
             margin-top: 20px;
             font-size: 18px;
+            color: #333;
         }
         #start-btn {
             padding: 10px 20px;
@@ -69,7 +70,6 @@
         let audioContext;
         let analyser;
         let microphone;
-        let javascriptNode;
 
         startBtn.addEventListener('click', () => {
             // Request microphone access and start analyzing
@@ -94,6 +94,13 @@
                         let average = sum / bufferLength;
                         let volumePercentage = Math.min(100, Math.max(0, average * 2)); // Scale
                         meterBar.style.width = volumePercentage + '%';
+
+                        // If meter is full, show message
+                        if (volumePercentage >= 100) {
+                            status.textContent = "You're too loud! You lost the round!";
+                        } else {
+                            status.textContent = "Listening for voice input...";
+                        }
 
                         requestAnimationFrame(updateMeter);
                     }
