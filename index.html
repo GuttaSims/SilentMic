@@ -39,6 +39,18 @@
             margin-top: 20px;
             font-size: 18px;
         }
+        #start-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #start-btn:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
@@ -46,42 +58,54 @@
     <div id="meter">
         <div id="meter-bar"></div>
     </div>
-    <p id="status">Listening for voice input...</p>
+    <p id="status">Click "Start" to allow microphone access and monitor voice input.</p>
+    <button id="start-btn">Start</button>
 
     <script>
         const meterBar = document.getElementById('meter-bar');
         const status = document.getElementById('status');
+        const startBtn = document.getElementById('start-btn');
 
-        if ('webkitSpeechRecognition' in window) {
-            const recognition = new webkitSpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = false;
-            recognition.lang = 'en-US';
+        let recognition;
 
-            recognition.start();
+        startBtn.addEventListener('click', () => {
+            // Prompt the user for microphone access and start speech recognition
+            if ('webkitSpeechRecognition' in window) {
+                recognition = new webkitSpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
 
-            recognition.onresult = function(event) {
-                // When voice is detected, increase the meter
-                updateMeter(100); // Fully filled meter
-                status.textContent = "Voice detected!";
-                
-                // Reset meter after 1 second
-                setTimeout(() => {
-                    updateMeter(0); // Empty meter
-                    status.textContent = "Listening for voice input...";
-                }, 1000);
-            };
+                recognition.start();
 
-            recognition.onerror = function(event) {
-                status.textContent = "Error occurred: " + event.error;
-            };
+                recognition.onstart = function() {
+                    status.textContent = "Microphone access granted. Listening for voice input...";
+                };
 
-            recognition.onend = function() {
-                recognition.start(); // Restart if the recognition stops
-            };
-        } else {
-            status.textContent = "Speech Recognition is not supported in this browser.";
-        }
+                recognition.onresult = function(event) {
+                    // When voice is detected, increase the meter
+                    updateMeter(100); // Fully filled meter
+                    status.textContent = "Voice detected!";
+                    
+                    // Reset meter after 1 second
+                    setTimeout(() => {
+                        updateMeter(0); // Empty meter
+                        status.textContent = "Listening for voice input...";
+                    }, 1000);
+                };
+
+                recognition.onerror = function(event) {
+                    status.textContent = "Error occurred: " + event.error;
+                };
+
+                recognition.onend = function() {
+                    status.textContent = "Speech recognition ended. Click 'Start' to try again.";
+                    recognition.start(); // Restart if the recognition stops (optional)
+                };
+            } else {
+                status.textContent = "Speech Recognition is not supported in this browser.";
+            }
+        });
 
         function updateMeter(percentage) {
             meterBar.style.width = percentage + '%';
@@ -89,4 +113,3 @@
     </script>
 </body>
 </html>
-
