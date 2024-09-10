@@ -33,7 +33,7 @@
             position: absolute;
             top: 0;
             left: 0;
-            transition: width 0.2s;
+            transition: width 0.1s;
         }
         #status {
             margin-top: 20px;
@@ -66,50 +66,48 @@
         const status = document.getElementById('status');
         const startBtn = document.getElementById('start-btn');
 
-        let recognition;
+        let audioContext;
+        let analyser;
+        let microphone;
+        let javascriptNode;
 
         startBtn.addEventListener('click', () => {
-            // Prompt the user for microphone access and start speech recognition
-            if ('webkitSpeechRecognition' in window) {
-                recognition = new webkitSpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = false;
-                recognition.lang = 'en-US';
+            // Request microphone access and start analyzing
+            if (navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 256;
+                    const bufferLength = analyser.frequencyBinCount;
+                    const dataArray = new Uint8Array(bufferLength);
 
-                recognition.start();
+                    microphone = audioContext.createMediaStreamSource(stream);
+                    microphone.connect(analyser);
 
-                recognition.onstart = function() {
-                    status.textContent = "Microphone access granted. Listening for voice input...";
-                };
+                    function updateMeter() {
+                        analyser.getByteFrequencyData(dataArray);
+                        let sum = 0;
+                        for (let i = 0; i < bufferLength; i++) {
+                            sum += dataArray[i];
+                        }
+                        let average = sum / bufferLength;
+                        let volumePercentage = Math.min(100, Math.max(0, average * 2)); // Scale
+                        meterBar.style.width = volumePercentage + '%';
 
-                recognition.onresult = function(event) {
-                    // When voice is detected, increase the meter
-                    updateMeter(100); // Fully filled meter
-                    status.textContent = "Voice detected!";
-                    
-                    // Reset meter after 1 second
-                    setTimeout(() => {
-                        updateMeter(0); // Empty meter
-                        status.textContent = "Listening for voice input...";
-                    }, 1000);
-                };
+                        requestAnimationFrame(updateMeter);
+                    }
 
-                recognition.onerror = function(event) {
-                    status.textContent = "Error occurred: " + event.error;
-                };
-
-                recognition.onend = function() {
-                    status.textContent = "Speech recognition ended. Click 'Start' to try again.";
-                    recognition.start(); // Restart if the recognition stops (optional)
-                };
+                    updateMeter();
+                    status.textContent = "Listening for voice input...";
+                })
+                .catch(err => {
+                    status.textContent = "Microphone access denied.";
+                });
             } else {
-                status.textContent = "Speech Recognition is not supported in this browser.";
+                status.textContent = "Your browser does not support microphone access.";
             }
         });
-
-        function updateMeter(percentage) {
-            meterBar.style.width = percentage + '%';
-        }
     </script>
 </body>
 </html>
