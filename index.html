@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice Monitoring with Meter</title>
+    <title>Silent Skybox Voice Meter</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -29,11 +29,11 @@
         #meter-bar {
             height: 100%;
             width: 0;
-            background-color: #4caf50;
+            background: linear-gradient(to right, green, yellow, orange);
             position: absolute;
             top: 0;
             left: 0;
-            transition: width 0.1s;
+            transition: width 0.1s, background-color 0.5s;
         }
         #status {
             margin-top: 20px;
@@ -55,7 +55,7 @@
     </style>
 </head>
 <body>
-    <h1>Voice Monitoring with Meter</h1>
+    <h1>Voice Monitoring with Gradient Meter</h1>
     <div id="meter">
         <div id="meter-bar"></div>
     </div>
@@ -70,6 +70,7 @@
         let audioContext;
         let analyser;
         let microphone;
+        let winTimeout;  // Timer to track 20 seconds without exceeding full volume
 
         startBtn.addEventListener('click', () => {
             // Request microphone access and start analyzing
@@ -85,6 +86,14 @@
                     microphone = audioContext.createMediaStreamSource(stream);
                     microphone.connect(analyser);
 
+                    // Start 20-second win timer
+                    winTimeout = setTimeout(() => {
+                        status.textContent = "You won the round!";
+                        setTimeout(() => {
+                            location.reload();  // Refresh after 5 seconds
+                        }, 5000);  // 5 second delay
+                    }, 20000);  // 20 seconds of keeping volume below 100%
+
                     function updateMeter() {
                         analyser.getByteFrequencyData(dataArray);
                         let sum = 0;
@@ -95,10 +104,16 @@
                         let volumePercentage = Math.min(100, Math.max(0, average * 2)); // Scale
                         meterBar.style.width = volumePercentage + '%';
 
-                        // If meter is full, show message
+                        // Change gradient to red if the volume is too loud
                         if (volumePercentage >= 100) {
+                            meterBar.style.background = "linear-gradient(to right, red, darkred)";
                             status.textContent = "You're too loud! You lost the round!";
+                            clearTimeout(winTimeout);  // Cancel the win condition
+                            setTimeout(() => {
+                                location.reload();  // Refresh the page after 5 seconds
+                            }, 5000);  // 5000 ms = 5 seconds
                         } else {
+                            meterBar.style.background = "linear-gradient(to right, green, yellow, orange)";
                             status.textContent = "Listening for voice input...";
                         }
 
