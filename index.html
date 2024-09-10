@@ -29,7 +29,7 @@
         #meter-bar {
             height: 100%;
             width: 0;
-            background: linear-gradient(to right, green, yellow, orange);
+            background: linear-gradient(to right, lightgreen, green, darkgreen);
             position: absolute;
             top: 0;
             left: 0;
@@ -70,7 +70,8 @@
         let audioContext;
         let analyser;
         let microphone;
-        let winTimeout;  // Timer to track 20 seconds without exceeding full volume
+        let winTimeout;
+        let loudInputReached = false; // Track if volume reached 100%
 
         startBtn.addEventListener('click', () => {
             // Request microphone access and start analyzing
@@ -88,13 +89,17 @@
 
                     // Start 20-second win timer
                     winTimeout = setTimeout(() => {
-                        status.textContent = "You won the round!";
-                        setTimeout(() => {
-                            location.reload();  // Refresh after 5 seconds
-                        }, 5000);  // 5 second delay
+                        if (!loudInputReached) {
+                            status.textContent = "You won the round!";
+                            setTimeout(() => {
+                                location.reload();  // Refresh after 5 seconds
+                            }, 5000);  // 5 second delay
+                        }
                     }, 20000);  // 20 seconds of keeping volume below 100%
 
                     function updateMeter() {
+                        if (loudInputReached) return;  // Stop updating if loud input was reached
+
                         analyser.getByteFrequencyData(dataArray);
                         let sum = 0;
                         for (let i = 0; i < bufferLength; i++) {
@@ -104,8 +109,9 @@
                         let volumePercentage = Math.min(100, Math.max(0, average * 2)); // Scale
                         meterBar.style.width = volumePercentage + '%';
 
-                        // Change gradient to red if the volume is too loud
+                        // If the volume is too loud, freeze the page and stop the meter
                         if (volumePercentage >= 100) {
+                            loudInputReached = true;
                             meterBar.style.background = "linear-gradient(to right, red, darkred)";
                             status.textContent = "You're too loud! You lost the round!";
                             clearTimeout(winTimeout);  // Cancel the win condition
@@ -113,7 +119,7 @@
                                 location.reload();  // Refresh the page after 5 seconds
                             }, 5000);  // 5000 ms = 5 seconds
                         } else {
-                            meterBar.style.background = "linear-gradient(to right, green, yellow, orange)";
+                            meterBar.style.background = "linear-gradient(to right, lightgreen, green, darkgreen)";
                             status.textContent = "Listening for voice input...";
                         }
 
