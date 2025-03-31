@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SL Voice Meter</title>
+</head>
+<body>
+    <h1>Second Life Voice Meter</h1>
+    <button id="startButton">Start Microphone</button>
+    <p id="volumeDisplay">Volume: 0</p>
+
+    <script>
+        let serverURL = "YOUR_SECOND_LIFE_URL_HERE"; // Replace with your SL URL
+        
+        async function startMic() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const audioContext = new AudioContext();
+                const source = audioContext.createMediaStreamSource(stream);
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+
+                let meter = new Uint8Array(analyser.frequencyBinCount);
+
+                function updateMeter() {
+                    analyser.getByteFrequencyData(meter);
+                    let volume = Math.max(...meter); // Get peak volume
+                    document.getElementById("volumeDisplay").innerText = "Volume: " + volume;
+
+                    // Send data to Second Life
+                    fetch(serverURL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: `volume=${volume}`
+                    });
+
+                    requestAnimationFrame(updateMeter);
+                }
+
+                updateMeter();
+            } catch (error) {
+                console.error("Microphone access denied!", error);
+            }
+        }
+
+        document.getElementById("startButton").addEventListener("click", startMic);
+    </script>
+</body>
+</html>
