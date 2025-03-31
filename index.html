@@ -4,32 +4,77 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SL Voice Meter</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+        h1 { color: #333; }
+        #meterContainer { 
+            width: 300px; height: 30px; background: #ccc; 
+            border-radius: 5px; margin: 20px auto; position: relative;
+            overflow: hidden; border: 2px solid #333;
+        }
+        #meterBar { 
+            width: 0%; height: 100%; position: absolute; left: 0; top: 0;
+            background: linear-gradient(to right, green, yellow, red); 
+            transition: width 0.1s ease-out;
+        }
+    </style>
 </head>
 <body>
     <h1>Second Life Voice Meter</h1>
+    
+    <label for="micSelect">Select Microphone:</label>
+    <select id="micSelect"></select>
     <button id="startButton">Start Microphone</button>
+
+    <div id="meterContainer">
+        <div id="meterBar"></div>
+    </div>
+
     <p id="volumeDisplay">Volume: 0</p>
 
     <script>
-        let serverURL = "YOUR_SECOND_LIFE_URL_HERE"; // Replace with your SL URL
-        
+        let audioContext, analyser, meterData, source;
+        let serverURL = "YOUR_SECOND_LIFE_URL_HERE"; // Replace with SL script URL
+
+        async function getMicrophones() {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const micSelect = document.getElementById("micSelect");
+            micSelect.innerHTML = ""; // Clear previous list
+            
+            devices.forEach((device, index) => {
+                if (device.kind === "audioinput") {
+                    let option = document.createElement("option");
+                    option.value = device.deviceId;
+                    option.textContent = device.label || `Microphone ${index + 1}`;
+                    micSelect.appendChild(option);
+                }
+            });
+        }
+
         async function startMic() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const audioContext = new AudioContext();
-                const source = audioContext.createMediaStreamSource(stream);
-                const analyser = audioContext.createAnalyser();
+                let selectedMic = document.getElementById("micSelect").value;
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { deviceId: selectedMic ? { exact: selectedMic } : undefined } 
+                });
+
+                audioContext = new AudioContext();
+                source = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
                 analyser.fftSize = 256;
                 source.connect(analyser);
-
-                let meter = new Uint8Array(analyser.frequencyBinCount);
-
+                
+                meterData = new Uint8Array(analyser.frequencyBinCount);
+                
                 function updateMeter() {
-                    analyser.getByteFrequencyData(meter);
-                    let volume = Math.max(...meter); // Get peak volume
+                    analyser.getByteFrequencyData(meterData);
+                    let volume = Math.max(...meterData); // Get peak volume
                     document.getElementById("volumeDisplay").innerText = "Volume: " + volume;
 
-                    // Send data to Second Life
+                    // Update meter bar width (scale 0-100)
+                    document.getElementById("meterBar").style.width = `${Math.min(volume, 100)}%`;
+
+                    // Send volume to Second Life
                     fetch(serverURL, {
                         method: "POST",
                         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -44,6 +89,10 @@
                 console.error("Microphone access denied!", error);
             }
         }
+
+        // Load microphone list on page load
+        getMicrophones();
+        navigator.mediaDevices.addEventListener("devicechange", getMicrophones);
 
         document.getElementById("startButton").addEventListener("click", startMic);
     </script>
