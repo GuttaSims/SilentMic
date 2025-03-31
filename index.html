@@ -3,98 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SL Voice Meter</title>
+    <title>Voice Meter</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-        h1 { color: #333; }
-        #meterContainer { 
-            width: 300px; height: 30px; background: #ccc; 
-            border-radius: 5px; margin: 20px auto; position: relative;
-            overflow: hidden; border: 2px solid #333;
+        #volumeMeter {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            margin-top: 20px;
         }
-        #meterBar { 
-            width: 0%; height: 100%; position: absolute; left: 0; top: 0;
-            background: linear-gradient(to right, green, yellow, red); 
-            transition: width 0.1s ease-out;
+
+        #volumeMeter div {
+            height: 100%;
+            border-radius: 5px;
         }
     </style>
 </head>
 <body>
-    <h1>Second Life Voice Meter</h1>
-    
-    <label for="micSelect">Select Microphone:</label>
-    <select id="micSelect"></select>
-    <button id="startButton">Start Microphone</button>
-
-    <div id="meterContainer">
-        <div id="meterBar"></div>
+    <h1>Microphone Volume Meter</h1>
+    <button id="startBtn">Start</button>
+    <div id="volumeMeter">
+        <div id="volumeBar" style="width: 0%; background: linear-gradient(to right, #ff0000, #ffff00, #00ff00);"></div>
     </div>
 
-    <p id="volumeDisplay">Volume: 0</p>
-
     <script>
-        let audioContext, analyser, meterData, source;
-        let serverURL = "http://simhost-0ce4dfc37f7e1d5a8.agni.secondlife.io:12046/cap/22f8a34e-572c-c27b-1dbd-4cb8eaf7d29e;"; // Replace with SL script URL
+        const startBtn = document.getElementById('startBtn');
+        const volumeMeter = document.getElementById('volumeMeter');
+        const volumeBar = document.getElementById('volumeBar');
 
-        async function getMicrophones() {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const micSelect = document.getElementById("micSelect");
-            micSelect.innerHTML = ""; // Clear previous list
-            
-            devices.forEach((device, index) => {
-                if (device.kind === "audioinput") {
-                    let option = document.createElement("option");
-                    option.value = device.deviceId;
-                    option.textContent = device.label || `Microphone ${index + 1}`;
-                    micSelect.appendChild(option);
-                }
-            });
-        }
+        let audioContext;
+        let analyser;
+        let microphone;
+        let scriptProcessor;
+
+        let isMicActive = false;
+
+        // Set your SL server URL
+        const SL_SERVER_URL = 'http://simhost-0ce4dfc37f7e1d5a8.agni.secondlife.io:12046/cap/7aabdb9c-4707-e345-fb71-1b7c71de69b7;';
 
         async function startMic() {
             try {
-                let selectedMic = document.getElementById("micSelect").value;
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: { deviceId: selectedMic ? { exact: selectedMic } : undefined } 
-                });
-
-                audioContext = new AudioContext();
-                source = audioContext.createMediaStreamSource(stream);
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
-                analyser.fftSize = 256;
-                source.connect(analyser);
-                
-                meterData = new Uint8Array(analyser.frequencyBinCount);
-                
-                function updateMeter() {
-                    analyser.getByteFrequencyData(meterData);
-                    let volume = Math.max(...meterData); // Get peak volume
-                    document.getElementById("volumeDisplay").innerText = "Volume: " + volume;
+                scriptProcessor = audioContext.createScriptProcessor(2048, 1, 1);
 
-                    // Update meter bar width (scale 0-100)
-                    document.getElementById("meterBar").style.width = `${Math.min(volume, 100)}%`;
+                microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+                analyser.connect(scriptProcessor);
+                scriptProcessor.connect(audioContext.destination);
 
-                    // Send volume to Second Life
-                    fetch(serverURL, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                        body: `volume=${volume}`
-                    });
+                scriptProcessor.onaudioprocess = processAudio;
+                isMicActive = true;
 
-                    requestAnimationFrame(updateMeter);
-                }
+                startBtn.disabled = true; // Disable button after starting
 
-                updateMeter();
             } catch (error) {
-                console.error("Microphone access denied!", error);
+                console.error('Error accessing microphone:', error);
+                alert('Unable to access your microphone');
             }
         }
 
-        // Load microphone list on page load
-        getMicrophones();
-        navigator.mediaDevices.addEventListener("devicechange", getMicrophones);
+        function processAudio(event) {
+            if (!isMicActive) return;
 
-        document.getElementById("startButton").addEventListener("click", startMic);
+            const buffer = event.inputBuffer.getChannelData(0);
+            let sum = 0;
+
+            // Calculate the volume level (RMS)
+            for (let i = 0; i < buffer.length; i++) {
+                sum += buffer[i] * buffer[i];
+            }
+            const volume = Math.sqrt(sum / buffer.length);
+
+            // Update the visual meter
+            updateMeter(volume);
+
+            // Send the volume to the Second Life script
+            sendVolumeToSL(volume);
+        }
+
+        function updateMeter(volume) {
+            // Map the volume to a percentage for the meter
+            const volumePercentage = Math.min(volume * 100, 100);
+            volumeBar.style.width = `${volumePercentage}%`;
+        }
+
+        function sendVolumeToSL(volume) {
+            // Send POST request to the SL script with the volume level
+            const data = `volume=${volume}`;
+
+            fetch(SL_SERVER_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: data,
+            })
+            .then(response => response.text())
+            .then(data => console.log('Success:', data))
+            .catch((error) => console.error('Error:', error));
+        }
+
+        startBtn.addEventListener('click', startMic);
     </script>
 </body>
 </html>
