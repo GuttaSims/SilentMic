@@ -1,61 +1,115 @@
-<script>
-    // Access microphone
-    async function startMic() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const analyser = audioContext.createAnalyser();
-            const source = audioContext.createMediaStreamSource(stream);
-            source.connect(analyser);
-
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-
-            function updateMeter() {
-                analyser.getByteFrequencyData(dataArray);
-
-                // Calculate volume from the frequency data
-                let total = 0;
-                for (let i = 0; i < bufferLength; i++) {
-                    total += dataArray[i];
-                }
-                const average = total / bufferLength;
-
-                // Normalize the volume to 0-100 range
-                const volume = Math.min(100, (average / 255) * 100);
-
-                // Send volume to SL server
-                fetch('http://simhost-0ce4dfc37f7e1d5a8.agni.secondlife.io:12046/cap/0b8877b7-c455-f532-ed20-337fdfab1ed0;', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ volume: volume })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Data sent to SL:', data);
-                })
-                .catch(error => {
-                    console.error('Error sending volume data to SL:', error);
-                });
-
-                // Update the volume meter
-                const meter = document.getElementById('volumeMeter');
-                const label = document.getElementById('volumeLabel');
-                meter.style.height = `${volume}%`;
-                label.textContent = `${Math.round(volume)}%`;
-
-                // Repeat the update every 50ms
-                requestAnimationFrame(updateMeter);
-            }
-
-            // Start updating the meter
-            updateMeter();
-        } catch (err) {
-            console.error('Error accessing microphone:', err);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Meter</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to top, #e0f7fa, #ffffff);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
         }
-    }
 
-    startMic();  // Start the microphone access and meter update
-</script>
+        .meter-container {
+            width: 100px;
+            height: 500px;
+            background: #ddd;
+            border-radius: 50px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .meter {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to top, #00c853, #ff1744);
+            border-radius: 50px;
+            transition: height 0.1s ease-out;
+        }
+
+        .meter-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="meter-container">
+        <div class="meter" id="volumeMeter"></div>
+        <div class="meter-label" id="volumeLabel">0%</div>
+    </div>
+
+    <script>
+        // Access microphone
+        async function startMic() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+
+                function updateMeter() {
+                    analyser.getByteFrequencyData(dataArray);
+
+                    // Calculate volume from the frequency data
+                    let total = 0;
+                    for (let i = 0; i < bufferLength; i++) {
+                        total += dataArray[i];
+                    }
+                    const average = total / bufferLength;
+
+                    // Normalize the volume to 0-100 range
+                    const volume = Math.min(100, (average / 255) * 100);
+
+                    // Send volume to SL server (replace with your SL URL)
+                    fetch('http://simhost-0ce4dfc37f7e1d5a8.agni.secondlife.io:12046/cap/0b8877b7-c455-f532-ed20-337fdfab1ed0;', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ volume: volume })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Data sent to SL:', data);
+                    })
+                    .catch(error => {
+                        console.error('Error sending volume data to SL:', error);
+                    });
+
+                    // Update the volume meter
+                    const meter = document.getElementById('volumeMeter');
+                    const label = document.getElementById('volumeLabel');
+                    meter.style.height = `${volume}%`;
+                    label.textContent = `${Math.round(volume)}%`;
+
+                    // Repeat the update every 50ms
+                    requestAnimationFrame(updateMeter);
+                }
+
+                // Start updating the meter
+                updateMeter();
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+            }
+        }
+
+        startMic();  // Start the microphone access and meter update
+    </script>
+</body>
+</html>
